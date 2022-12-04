@@ -9,6 +9,13 @@ let character = 0; // used to loop though spans in the span-List
 
 button.addEventListener("click", animate);
 
+input.addEventListener("keyup", function (event) {
+  // Activates button click on enter key
+  if (event.keyCode === 13) {
+    button.click();
+  }
+});
+
 function animate() {
   if (input.value !== "") {
     button.removeEventListener("click", animate); // Prevents the code from crashing in case the user clicked the button again while animation is running
