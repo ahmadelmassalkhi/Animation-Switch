@@ -1,111 +1,91 @@
-const fancy = document.querySelector(".fancy");
-const input = document.querySelector(".submit-input");
-const button = document.querySelector(".submit-btn");
+class TextAnimator {
+  constructor(output, input, button) {
+    this.output = output;
+    this.input = input;
+    this.button = button;
+    this.state = "idle";
+    this.timers = [];
+    this.delay = 50;
 
-const delay = 50; // Short delay between the addition/removal of spans' classes
-let timer1 = null; // Will be used to run the addClass function once every *delay* ms
-let timer2 = null; // Will be used to run the removeClass function once every *delay* ms
-let character = 0; // used to loop though spans in the span-List 
-
-button.addEventListener("click", animate);
-
-input.addEventListener("keyup", function (event) {
-  // Activates button click on enter key
-  if (event.keyCode === 13) {
-    button.click();
-  }
-});
-
-function animate() {
-  if (input.value !== "") {
-    button.removeEventListener("click", animate); // Prevents the code from crashing in case the user clicked the button again while animation is running
-    button.innerText = "De-Animate";
-
-    let letters = input.value.split(""); // Creates a list of letters inserted by the user 
-
-    input.value = "";
-    fancy.innerHTML = "";
-    letters.forEach((letter) => {
-      fancy.innerHTML += `<span>${letter}</span>`; // Creates the spans that will be animated
+    button.addEventListener("click", () => this.toggle());
+    input.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" && !button.disabled) this.toggle();
     });
-    timer1 = setInterval(addClass, delay); // Starts calling addClass once every *delay*
+  }
 
+  toggle() {
+    if (this.state === "idle") this.animate();
+    else if (this.state === "visible") this.deanimate();
+  }
+
+  schedule(callback, delay) {
+    this.timers.push(setTimeout(callback, delay));
+  }
+
+  clearTimers() {
+    this.timers.forEach(clearTimeout);
+    this.timers = [];
+  }
+
+  animate() {
+    if (!this.input.value) return;
+
+    this.clearTimers();
+    const characters = Array.from(this.input.value);
+    const duration = characters.length * this.delay;
+    const spans = characters.map((character) => {
+      const span = document.createElement("span");
+      span.textContent = character === " " ? "\u00a0" : character;
+      return span;
+    });
+
+    this.output.replaceChildren(...spans);
+    this.input.value = "";
+    this.state = "animating";
+    this.button.textContent = "De-Animate";
+    this.button.disabled = true;
+
+    spans.forEach((span, index) => {
+      const start = (index + 1) * this.delay;
+      this.schedule(() => span.classList.add("fade"), start);
+      this.schedule(() => {
+        span.style.color = `#${Math.floor(Math.random() * 0x1000000)
+          .toString(16)
+          .padStart(6, "0")}`;
+      }, start + duration);
+      this.schedule(() => { span.style.color = "white"; }, start + 2 * (duration + this.delay));
+    });
+
+    this.schedule(() => {
+      this.state = "visible";
+      this.button.disabled = false;
+    }, duration);
+  }
+
+  deanimate() {
+    this.clearTimers();
+    const spans = Array.from(this.output.children);
+    const duration = spans.length * this.delay;
+    this.state = "deanimating";
+    this.button.textContent = "Animate!";
+    this.button.disabled = true;
+
+    spans.reverse().forEach((span, index) => {
+      const start = (index + 1) * this.delay;
+      this.schedule(() => { span.style.color = "black"; }, start);
+      this.schedule(() => span.classList.remove("fade"), start + duration);
+    });
+
+    this.schedule(() => {
+      this.state = "idle";
+      this.button.disabled = false;
+      this.clearTimers();
+    }, 2 * duration);
   }
 }
 
-
-
-function addClass() {
-  const spans = fancy.childNodes; 
-  const currentSpan = spans[character];
-  const ms = spans.length * delay; // ms variable is the time taken to add/remove a class from all the spans
-
-  //Animate
-  currentSpan.classList.add("fade");
-
-  //Fix broken spaces after animating
-  if (currentSpan.innerText === "") {
-    currentSpan.innerHTML = "&nbsp;";
-  }
-
-  // Setting random colors before recoloring to make it alittle fancy
-  setTimeout(() => {
-    setRandomColor(currentSpan);
-  }, ms);
-
-
-  //Re-coloring the spans
-  setTimeout(() => {
-    currentSpan.style.color = 'white';
-  }, 2 * (ms + delay)); // 2*(ms+delay) because 2*ms makes random colors innoticable to the user
-
-  character++; // Necessary to loop through the spans
-  if (character == spans.length) { // When the class is  appplied to all spans
-    clearInterval(timer1);
-    timer1 = null;
-    button.addEventListener("click", clock);
-  }
-}
-
-function clock() {  //After clicking "De-Animate"
-  button.innerText = "Animate!";
-  button.removeEventListener("click", clock); //Prevents code crash
-  timer2 = setInterval(removeClass, delay);
-  const spans = fancy.childNodes;
-  character = spans.length - 1; // Setting character to last span's index : spans[spans.length-1] = last span
-}
-
-function removeClass() {
-  const spans = fancy.childNodes;
-  const currentSpan = spans[character];
-  const ms = spans.length * delay;
-  currentSpan.style.color =  'black';
-  setTimeout(() => {
-    currentSpan.classList.remove("fade");
-  }, ms);
-
-  character--; // Necessary to loop through the spans backwards and remove classes
-  if (character == -1) {  
-    clearInterval(timer2);
-    timer2 = null;
-    character = 0; // Preparing character for the next animation
-    
-    button.addEventListener("click", animate);
-  }
-}
-
-
-
-// Random Color generator
-function getRandomColor() {
-  let letters = "0123456789ABCDEF";
-  let color = "#";
-  for (let i = 0; i < 6; i++) {
-    color += letters[Math.floor(Math.random() * 16)];
-  }
-  return color;
-}
-
-function setRandomColor(element) {
-  element.style.color = getRandomColor();
-}
+new TextAnimator(
+  document.querySelector(".fancy"),
+  document.querySelector(".submit-input"),
+  document.querySelector(".submit-btn")
+);
